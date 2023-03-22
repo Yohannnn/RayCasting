@@ -10,6 +10,8 @@ use std::ops;
 // Screen size
 const SCREEN_WIDTH: u32 = 640;
 const SCREEN_HEIGHT: u32 = 480;
+const TEXT_WIDTH: u32 = 64;
+const TEXT_HEIGHT: u32 = 64;
 
 // Speed and rotation speed
 const MOV_SPEED: f64 = 0.03;
@@ -225,6 +227,18 @@ fn main() -> Result<(), String> {
         .expect("could not make a canvas");
 
     let mut event_pump = sdl_context.event_pump()?;
+
+    let mut buffer: [[u32; SCREEN_HEIGHT as usize]; SCREEN_WIDTH as usize];
+    let mut texture: [Vec<u8>; 8];
+
+    // Generate the textures
+    for x in 0..TEXT_WIDTH {
+        for y in 0..TEXT_HEIGHT {
+            texture[0] = 65536 * 254 * (x != y && x != TEXT_WIDTH - y); //flat red texture with black cross
+        }
+    }
+
+
 
     let mut state = State {
         pos: V { x: 4.5, y: 5.0 },
