@@ -115,14 +115,8 @@ fn main() -> Result<(), String> {
         .expect("could not make a canvas");
 
     let mut event_pump = sdl_context.event_pump()?;
-
     // Generate the textures
-    let mut texture: [Vec<i32>; 8] = Default::default();
-    for i in 0..8 {
-        texture[i] = vec![0; (TEXT_WIDTH * TEXT_HEIGHT) as usize];
-    }
-
-
+    let mut texture = [[0; (TEXT_WIDTH * TEXT_HEIGHT) as usize]; 8];
     for x in 0..TEXT_WIDTH {
         for y in 0..TEXT_HEIGHT {
             let xorcolor = ((x * 256 / TEXT_WIDTH) ^ (y * 256 / TEXT_HEIGHT)) as i32;
@@ -338,6 +332,7 @@ fn main() -> Result<(), String> {
         // Update the screen
         canvas.present();
 
+        //TODO: Fix timing
         // Sleep to maintain framerate of 60fps
         let elapsed_time = start_time.elapsed();
         if elapsed_time < Duration::from_millis(16) {
