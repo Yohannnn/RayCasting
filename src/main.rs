@@ -9,8 +9,7 @@ use std::ops;
 // Screen size
 const SCREEN_WIDTH: u32 = 640;
 const SCREEN_HEIGHT: u32 = 480;
-const TEXT_WIDTH: u32 = 64;
-const TEXT_HEIGHT: u32 = 64;
+const TEX_SIZE: u32 = 64;
 
 // Speed and rotation speed
 const MOV_SPEED: f64 = 0.1;
@@ -30,7 +29,6 @@ impl ops::Neg for V<f64> {
         V{x: -self.x, y: -self.y}
     }
 } 
-
 
 // State struct
 #[derive(Debug, Copy, Clone)]
@@ -67,7 +65,6 @@ const MAP: [[u8; 24]; 24] =[
   [4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2],
   [4,4,4,4,4,4,4,4,4,4,1,1,1,2,2,2,2,2,2,3,3,3,3,3]
 ];
-
 
 // Rotate the player and the camera plane
 fn rotate(state: &mut State, angle: f64) {
@@ -116,14 +113,14 @@ fn main() -> Result<(), String> {
 
     let mut event_pump = sdl_context.event_pump()?;
     // Generate the textures
-    let mut texture = [[0; (TEXT_WIDTH * TEXT_HEIGHT) as usize]; 8];
-    for x in 0..TEXT_WIDTH {
-        for y in 0..TEXT_HEIGHT {
-            let xorcolor = ((x * 256 / TEXT_WIDTH) ^ (y * 256 / TEXT_HEIGHT)) as i32;
-            let ycolor = (y * 256 / TEXT_WIDTH ) as i32;
-            let xycolor = (y * 128 / TEXT_HEIGHT + x * 128 / TEXT_HEIGHT) as i32;
-            let p = (TEXT_WIDTH * y + x) as usize;
-            texture[0][p] = 65536 * 254 * (x != y && x != TEXT_WIDTH - y) as i32; //flat red texture with black cross
+    let mut texture = [[0; (TEX_SIZE * TEX_SIZE) as usize]; 8];
+    for x in 0..TEX_SIZE {
+        for y in 0..TEX_SIZE {
+            let xorcolor = ((x * 256 / TEX_SIZE) ^ (y * 256 / TEX_SIZE)) as i32;
+            let ycolor = (y * 256 / TEX_SIZE ) as i32;
+            let xycolor = (y * 128 / TEX_SIZE + x * 128 / TEX_SIZE) as i32;
+            let p = (TEX_SIZE * y + x) as usize;
+            texture[0][p] = 65536 * 254 * (x != y && x != TEX_SIZE - y) as i32; //flat red texture with black cross
             texture[1][p] = xycolor + 256 * xycolor + 65536 * xycolor; //sloped greyscale
             texture[2][p] = 256 * xycolor + 65536 * xycolor; //sloped yellow gradient
             texture[3][p] = xorcolor + 256 * xorcolor + 65536 * xorcolor; //xor greyscale
@@ -134,7 +131,14 @@ fn main() -> Result<(), String> {
         }
     }
 
-
+    // Swap the x and y coordinates of the texture to optimize the rendering
+    for i in 0..8{
+        for x in 0..TEX_SIZE {
+            for y in 0..x {
+                texture[i].swap((TEX_SIZE * y + x) as usize, (TEX_SIZE * x + y) as usize);
+            }
+        }
+    }
 
     let mut state = State {
         pos: V { x: 4.5, y: 5.0 },
@@ -303,24 +307,24 @@ fn main() -> Result<(), String> {
             wall_x -= wall_x.floor();
 
             // Get the x coordinate on the texture
-            let mut tex_x = (wall_x * TEXT_WIDTH as f64) as u32;
+            let mut tex_x = (wall_x * TEX_SIZE as f64) as u32;
             if ns_side && ray.y < 0.0{
-                tex_x = TEXT_WIDTH - tex_x - 1;
+                tex_x = TEX_SIZE - tex_x - 1;
             }
             if !ns_side && ray.x > 0.0{
-                tex_x = TEXT_WIDTH - tex_x - 1;
+                tex_x = TEX_SIZE - tex_x - 1;
             }
 
-            let tex_step = TEXT_HEIGHT as f64 / line_height as f64;
+            let tex_step = TEX_SIZE as f64 / line_height as f64;
             
             // Starting texture coordinate
             let mut tex_pos = (draw_start.y - (SCREEN_HEIGHT / 2) as i32 + line_height / 2) as f64 * tex_step;
 
             for y in draw_start.y..draw_end.y {
                 // Get the correct texture pixel
-                let tex_y = tex_pos as u32 & (TEXT_HEIGHT - 1);
+                let tex_y = tex_pos as u32 & (TEX_SIZE - 1);
                 tex_pos += tex_step;
-                let mut color = texture[tex_num as usize][(TEXT_HEIGHT * tex_y + tex_x) as usize];
+                let mut color = texture[tex_num as usize][(TEX_SIZE * tex_x + tex_y) as usize];
                 if ns_side {color = (color >> 1) & 8355711} // Make y sides darker
 
                 // Draw the pixel
@@ -338,6 +342,10 @@ fn main() -> Result<(), String> {
         if elapsed_time < Duration::from_millis(16) {
             std::thread::sleep(Duration::from_millis(16) - elapsed_time);
         }
+
+        // Print the FPS
+        let fps = 1.0 / start_time.elapsed().as_secs_f64();
+        println!("FPS: {}", fps);
     }
 
     Ok(())
