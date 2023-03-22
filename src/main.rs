@@ -343,10 +343,6 @@ fn main() -> Result<(), String> {
         if elapsed_time < Duration::from_millis(16) {
             std::thread::sleep(Duration::from_millis(16) - elapsed_time);
         }
-
-        // Print out the FPS
-        let fps = 1.0 / start_time.elapsed().as_secs_f64();
-        println!("FPS: {}", fps);
     }
 
     Ok(())
