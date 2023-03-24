@@ -8,13 +8,14 @@ use std::ops;
 use std::time::{Duration, Instant};
 
 // Screen size
-const SCREEN_WIDTH: u32 = 640;
-const SCREEN_HEIGHT: u32 = 480;
+//TODO: Make it fullscreen and maybe downscale the resolution
+const SCREEN_WIDTH: u32 = 1920;
+const SCREEN_HEIGHT: u32 = 1080;
 const TEX_SIZE: u32 = 64;
 
 // Speed and rotation speed
-const MOV_SPEED: f64 = 0.1;
-const ROT_SPEED: f64 = 0.08;
+const MOV_SPEED: f64 = 0.05;
+const ROT_SPEED: f64 = 0.03;
 
 // Point struct
 #[derive(Debug, Copy, Clone)]
@@ -330,13 +331,7 @@ fn main() -> Result<(), String> {
             let tex = &textures[(MAP[map_pos.y as usize][map_pos.x as usize] - 1) as usize];
 
             // Calculate the value of the wall x coordinate
-            let mut wall_x: f64;
-            if ns_side {
-                wall_x = state.pos.x + perp_wal_dist * ray.x;
-            } else {
-                wall_x = state.pos.y + perp_wal_dist * ray.y;
-            }
-            wall_x -= wall_x.floor();
+            let wall_x = (if ns_side {state.pos.x + perp_wal_dist * ray.x} else {state.pos.y + perp_wal_dist * ray.y}).fract();
 
             // Get the x coordinate on the texture
             let mut tex_x = (wall_x * TEX_SIZE as f64) as u32;
@@ -356,6 +351,8 @@ fn main() -> Result<(), String> {
             // Draw the slice of the texture to the screen
             canvas.copy(&tex, Some(tex_slice), Some(screen_slice))?;
         }
+
+        // TODO: Draw the fps on the screen
 
         // Update the screen
         canvas.present();
