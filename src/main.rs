@@ -1,25 +1,21 @@
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::{Rect, Point};
-use sdl2::surface::Surface;
-use sdl2::image::LoadSurface;
-use std::ops;
-use std::time::{Duration, Instant};
+use sdl2::{
+    event::Event,
+    image::LoadSurface,
+    keyboard::Keycode,
+    pixels::Color,
+    rect::{Point, Rect},
+    surface::Surface,
+};
+use std::{ops, time::Instant};
 
 // Screen size
-//TODO: Make it fullscreen and maybe downscale the resolution
-const SCREEN_WIDTH: u32 = 1920;
-const SCREEN_HEIGHT: u32 = 1080;
+const PLANE_WIDTH: u32 = 320;
+const PLANE_HEIGHT: u32 = 200;
 const TEX_SIZE: u32 = 64;
-
-// Speed and rotation speed
-const MOV_SPEED: f64 = 0.05;
-const ROT_SPEED: f64 = 0.03;
 
 // Point struct
 #[derive(Debug, Copy, Clone)]
-struct V<T> {
+struct V<T: num::Num> {
     x: T,
     y: T,
 }
@@ -43,33 +39,81 @@ struct State {
     plane: V<f64>,
 }
 
-//TODO: Load map from file
+//TODO: Switch to using config file for texture and map data
 // Map of the walls
-const MAP: [[u8; 24]; 24] =[
-  [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,7,7,7,7,7,7,7,7],
-  [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7],
-  [4,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7],
-  [4,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7],
-  [4,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7],
-  [4,0,4,0,0,0,0,5,5,5,5,5,5,5,5,5,7,7,0,7,7,7,7,7],
-  [4,0,5,0,0,0,0,5,0,5,0,5,0,5,0,5,7,0,0,0,7,7,7,1],
-  [4,0,6,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8],
-  [4,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,1],
-  [4,0,8,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8],
-  [4,0,0,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,7,7,7,1],
-  [4,0,0,0,0,0,0,5,5,5,5,0,5,5,5,5,7,7,7,7,7,7,7,1],
-  [6,6,6,6,6,6,6,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6],
-  [8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4],
-  [6,6,6,6,6,6,0,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6],
-  [4,4,4,4,4,4,0,4,4,4,6,0,6,2,2,2,2,2,2,2,3,3,3,3],
-  [4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2],
-  [4,0,0,0,0,0,0,0,0,0,0,0,6,2,0,0,5,0,0,2,0,0,0,2],
-  [4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2],
-  [4,0,6,0,6,0,0,0,0,4,6,0,0,0,0,0,5,0,0,0,0,0,0,2],
-  [4,0,0,5,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2],
-  [4,0,6,0,6,0,0,0,0,4,6,0,6,2,0,0,5,0,0,2,0,0,0,2],
-  [4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2],
-  [4,4,4,4,4,4,4,4,4,4,1,1,1,2,2,2,2,2,2,3,3,3,3,3]
+const MAP: [[u8; 24]; 24] = [
+    [
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7, 7, 7,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 7,
+    ],
+    [
+        4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7,
+    ],
+    [
+        4, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7,
+    ],
+    [
+        4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 7,
+    ],
+    [
+        4, 0, 4, 0, 0, 0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 0, 7, 7, 7, 7, 7,
+    ],
+    [
+        4, 0, 5, 0, 0, 0, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 7, 0, 0, 0, 7, 7, 7, 1,
+    ],
+    [
+        4, 0, 6, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 7, 0, 0, 0, 0, 0, 0, 8,
+    ],
+    [
+        4, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 1,
+    ],
+    [
+        4, 0, 8, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 7, 0, 0, 0, 0, 0, 0, 8,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 7, 0, 0, 0, 7, 7, 7, 1,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 5, 5, 5, 5, 0, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 7, 1,
+    ],
+    [
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    ],
+    [
+        8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
+    ],
+    [
+        6, 6, 6, 6, 6, 6, 0, 6, 6, 6, 6, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    ],
+    [
+        4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 6, 0, 6, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 0, 6, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 2, 0, 0, 5, 0, 0, 2, 0, 0, 0, 2,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 0, 6, 2, 0, 0, 0, 0, 0, 2, 2, 0, 2, 2,
+    ],
+    [
+        4, 0, 6, 0, 6, 0, 0, 0, 0, 4, 6, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 2,
+    ],
+    [
+        4, 0, 0, 5, 0, 0, 0, 0, 0, 4, 6, 0, 6, 2, 0, 0, 0, 0, 0, 2, 2, 0, 2, 2,
+    ],
+    [
+        4, 0, 6, 0, 6, 0, 0, 0, 0, 4, 6, 0, 6, 2, 0, 0, 5, 0, 0, 2, 0, 0, 0, 2,
+    ],
+    [
+        4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 0, 6, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2,
+    ],
+    [
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
+    ],
 ];
 
 // Rotate the player and the camera plane
@@ -84,10 +128,9 @@ fn rotate(state: &mut State, angle: f64) {
 }
 
 // Move the player
-fn move_player(s: &mut State, forward: bool) {
-    let dir = if forward { s.dir } else { -s.dir };
-    let move_x = s.pos.x + dir.x * MOV_SPEED;
-    let move_y = s.pos.y + dir.y * MOV_SPEED;
+fn move_player(s: &mut State, speed: f64) {
+    let move_x = s.pos.x + s.dir.x * speed;
+    let move_y = s.pos.y + s.dir.y * speed;
 
     if MAP[s.pos.y as usize][move_x as usize] == 0 {
         s.pos.x = move_x;
@@ -97,28 +140,37 @@ fn move_player(s: &mut State, forward: bool) {
     }
 }
 
-// TODO: Split this into smaller functions to prepare for async implementation, to make it more readable, and to make it easier to benchmark
 fn main() -> Result<(), String> {
+    // Initialize SDL2
     let sdl_context = sdl2::init()?;
+
+    // Hide the cursor
+    sdl_context.mouse().show_cursor(false);
+
+    // Initialize the video subsystem
     let video_subsystem = sdl_context.video()?;
 
+    // Create a window
     let window = video_subsystem
-        .window("raycaster", SCREEN_WIDTH, SCREEN_HEIGHT)
-        .position_centered()
+        .window("raycaster", PLANE_WIDTH, PLANE_HEIGHT)
+        .fullscreen()
         .build()
-        .expect("could not initialize video subsystem");
+        .map_err(|e| e.to_string())?;
 
+    // Create a canvas
     let mut canvas = window
         .into_canvas()
-        .accelerated()
         .present_vsync()
         .build()
-        .expect("could not make a canvas");
+        .map_err(|e| e.to_string())?;
+
+    // Set the size of the canvas
+    canvas.set_logical_size(PLANE_WIDTH, PLANE_HEIGHT).unwrap();
 
     let mut event_pump = sdl_context.event_pump()?;
 
     // Load in the surfaces from files
-    let surfaces: [Surface; 8] = [
+    let textures: [Surface; 8] = [
         Surface::from_file("assets/eagle.png")?,
         Surface::from_file("assets/redbrick.png")?,
         Surface::from_file("assets/purplestone.png")?,
@@ -128,8 +180,6 @@ fn main() -> Result<(), String> {
         Surface::from_file("assets/wood.png")?,
         Surface::from_file("assets/colorstone.png")?,
     ];
-    
-
 
     let mut state = State {
         pos: V { x: 4.5, y: 5.0 },
@@ -139,114 +189,28 @@ fn main() -> Result<(), String> {
 
     let mut movement_keys = [false; 4];
 
+    // Main loop
     'running: loop {
         // Get the current time
         let start_time = Instant::now();
-
-        // Handle events
-        for event in event_pump.poll_iter() {
-            match event {
-                // Detect window close or escape key
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => {
-                    break 'running;
-                }
-
-                // Movement input
-                Event::KeyDown {
-                    keycode: Some(Keycode::W),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[0] = true;
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::S),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[1] = true;
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::A),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[2] = true;
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::D),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[3] = true;
-                }
-
-                Event::KeyUp {
-                    keycode: Some(Keycode::W),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[0] = false;
-                }
-                Event::KeyUp {
-                    keycode: Some(Keycode::S),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[1] = false;
-                }
-                Event::KeyUp {
-                    keycode: Some(Keycode::A),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[2] = false;
-                }
-                Event::KeyUp {
-                    keycode: Some(Keycode::D),
-                    repeat: false,
-                    ..
-                } => {
-                    movement_keys[3] = false;
-                }
-                _ => {}
-            }
-        }
-
-        // Update
-        if movement_keys[0] {
-            move_player(&mut state, true);
-        }
-
-        if movement_keys[1] {
-            move_player(&mut state, false);
-        }
-
-        if movement_keys[2] {
-            rotate(&mut state, ROT_SPEED)
-        }
-
-        if movement_keys[3] {
-            rotate(&mut state, -ROT_SPEED)
-        }
 
         // Render
         // TODO: Add a texture for the floor and ceiling
         // Draw floor and ceiling
         canvas.set_draw_color(Color::RGB(0, 0, 255));
-        canvas.fill_rect(Rect::new(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2))?;
+        canvas.fill_rect(Rect::new(0, 0, PLANE_WIDTH, PLANE_HEIGHT / 2))?;
         canvas.set_draw_color(Color::RGB(0, 255, 0));
-        canvas.fill_rect(Rect::new(  0, (SCREEN_HEIGHT / 2) as i32, SCREEN_WIDTH, SCREEN_HEIGHT / 2,))?;
-
+        canvas.fill_rect(Rect::new(
+            0,
+            (PLANE_HEIGHT / 2) as i32,
+            PLANE_WIDTH,
+            PLANE_HEIGHT / 2,
+        ))?;
 
         // Render the walls
-        for x in 0..SCREEN_WIDTH {
+        for x in 0..PLANE_WIDTH {
             // X cord on the camera plane
-            let camera_x = 2.0 * x as f64 / SCREEN_WIDTH as f64 - 1.0;
+            let camera_x = 2.0 * x as f64 / PLANE_WIDTH as f64 - 1.0;
 
             // Ray direction
             let ray = V {
@@ -322,55 +286,56 @@ fn main() -> Result<(), String> {
             }
 
             // Calculate the height of the line to draw on the screen
-            let line_height = (SCREEN_HEIGHT as f64 / perp_wal_dist) as i32;
+            let line_height = (PLANE_HEIGHT as f64 / perp_wal_dist) as i32;
 
             // Calculate the lowest and highest pixel to fill in the current stripe
-            let mut draw_start = -line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
-            if draw_start < 0 {
-                draw_start = 0;
-            }
-
-            let mut draw_end = line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
-            if draw_end >= SCREEN_HEIGHT as i32 {
-                draw_end = SCREEN_HEIGHT as i32 - 1;
-            }
+            let draw_start = std::cmp::max(-line_height / 2 + (PLANE_HEIGHT / 2) as i32, 0);
+            let draw_end = std::cmp::min(
+                line_height / 2 + (PLANE_HEIGHT / 2) as i32,
+                PLANE_HEIGHT as i32,
+            );
 
             // Get the correct texture for the wall
             let tex_num = (MAP[map_pos.y as usize][map_pos.x as usize] - 1) as usize;
 
             // Calculate the value of the wall x coordinate
-            let wall_x = (if ns_side {state.pos.x + perp_wal_dist * ray.x} else {state.pos.y + perp_wal_dist * ray.y}).fract();
+            let wall_x = (if ns_side {
+                state.pos.x + perp_wal_dist * ray.x
+            } else {
+                state.pos.y + perp_wal_dist * ray.y
+            })
+            .fract();
 
             // Get the x coordinate on the texture
-            let mut tex_x = (wall_x * TEX_SIZE as f64) as u32;
-            if ns_side && ray.y < 0.0 {
-                tex_x = TEX_SIZE - tex_x - 1;
-            }
-            if !ns_side && ray.x > 0.0 {
-                tex_x = TEX_SIZE - tex_x - 1;
-            }
+            let tex_x = if (ns_side && ray.y < 0.0) || (!ns_side && ray.x > 0.0) {
+                TEX_SIZE - (wall_x * TEX_SIZE as f64) as u32 - 1
+            } else {
+                (wall_x * TEX_SIZE as f64) as u32
+            };
 
+            // Value to increment the texture coordinate by
             let tex_step = TEX_SIZE as f64 / line_height as f64;
 
             // Starting texture coordinate
             let mut tex_pos =
-                (draw_start - (SCREEN_HEIGHT / 2) as i32 + line_height / 2) as f64 * tex_step;
+                (draw_start - (PLANE_HEIGHT / 2) as i32 + line_height / 2) as f64 * tex_step;
 
+            // Draw the texture
             for y in draw_start..draw_end {
                 // Get the correct texture pixel
                 let tex_y = tex_pos as u32 & (TEX_SIZE - 1);
                 tex_pos += tex_step;
                 let index = ((tex_y * TEX_SIZE) as usize + (tex_x as usize)) * 3;
-                let bitmap = surfaces[tex_num as usize].without_lock()
+                let buffer = textures[tex_num as usize]
+                    .without_lock()
                     .expect("Could not get surface pixels");
-                let color = Color::RGB(
-                    bitmap[index] as u8,
-                    bitmap[index + 1] as u8,
-                    bitmap[index + 2] as u8,
-                );
-//                if ns_side {
-//                    color = (color >> 1) & 8355711
-//                } // Make y sides darker
+                let mut color = Color::RGB(buffer[index], buffer[index + 1], buffer[index + 2]);
+                // Makes the y sides of the walls darker
+                if ns_side {
+                    color.r /= 2;
+                    color.g /= 2;
+                    color.b /= 2;
+                }
 
                 // Draw the pixel
                 canvas.set_draw_color(color);
@@ -378,18 +343,63 @@ fn main() -> Result<(), String> {
             }
         }
 
-        // TODO: Draw the fps on the screen
-
         // Update the screen
         canvas.present();
 
-        //TODO: Fix timing
-        // Sleep to maintain framerate of 60fps
-        let elapsed_time = start_time.elapsed();
-        if elapsed_time < Duration::from_millis(16) {
-            std::thread::sleep(Duration::from_millis(16) - elapsed_time);
+        // TODO: Draw the fps on the screen
+        let elapsed_time = start_time.elapsed().as_secs_f64();
+        let mov_speed = elapsed_time * 5.0;
+        let rot_speed = elapsed_time * 3.0;
+
+        // Handle events
+        for event in event_pump.poll_iter() {
+            match event {
+                // Detect window close
+                Event::Quit { .. } => break 'running,
+
+                // Detect key presses
+                Event::KeyDown {
+                    keycode: Some(keycode),
+                    repeat: false,
+                    ..
+                } => match keycode {
+                    Keycode::W => movement_keys[0] = true,
+                    Keycode::S => movement_keys[1] = true,
+                    Keycode::A => movement_keys[2] = true,
+                    Keycode::D => movement_keys[3] = true,
+                    _ => {}
+                },
+                Event::KeyUp {
+                    keycode: Some(keycode),
+                    repeat: false,
+                    ..
+                } => match keycode {
+                    Keycode::W => movement_keys[0] = false,
+                    Keycode::S => movement_keys[1] = false,
+                    Keycode::A => movement_keys[2] = false,
+                    Keycode::D => movement_keys[3] = false,
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+
+        // Update
+        if movement_keys[0] {
+            move_player(&mut state, mov_speed);
+        }
+
+        if movement_keys[1] {
+            move_player(&mut state, -mov_speed);
+        }
+
+        if movement_keys[2] {
+            rotate(&mut state, rot_speed)
+        }
+
+        if movement_keys[3] {
+            rotate(&mut state, -rot_speed)
         }
     }
-
     Ok(())
 }
