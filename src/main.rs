@@ -1,9 +1,9 @@
 use sdl2::event::Event;
-use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Texture;
+use sdl2::rect::{Rect, Point};
+use sdl2::surface::Surface;
+use sdl2::image::LoadSurface;
 use std::ops;
 use std::time::{Duration, Instant};
 
@@ -117,18 +117,19 @@ fn main() -> Result<(), String> {
 
     let mut event_pump = sdl_context.event_pump()?;
 
-    // Load in the textures from files
-    let texture_creator = canvas.texture_creator();
-    let textures: [Texture; 8] = [
-        texture_creator.load_texture("assets/eagle.png")?,
-        texture_creator.load_texture("assets/redbrick.png")?,
-        texture_creator.load_texture("assets/purplestone.png")?,
-        texture_creator.load_texture("assets/greystone.png")?,
-        texture_creator.load_texture("assets/bluestone.png")?,
-        texture_creator.load_texture("assets/mossy.png")?,
-        texture_creator.load_texture("assets/wood.png")?,
-        texture_creator.load_texture("assets/colorstone.png")?,
+    // Load in the surfaces from files
+    let surfaces: [Surface; 8] = [
+        Surface::from_file("assets/eagle.png")?,
+        Surface::from_file("assets/redbrick.png")?,
+        Surface::from_file("assets/purplestone.png")?,
+        Surface::from_file("assets/greystone.png")?,
+        Surface::from_file("assets/bluestone.png")?,
+        Surface::from_file("assets/mossy.png")?,
+        Surface::from_file("assets/wood.png")?,
+        Surface::from_file("assets/colorstone.png")?,
     ];
+    
+
 
     let mut state = State {
         pos: V { x: 4.5, y: 5.0 },
@@ -324,11 +325,18 @@ fn main() -> Result<(), String> {
             let line_height = (SCREEN_HEIGHT as f64 / perp_wal_dist) as i32;
 
             // Calculate the lowest and highest pixel to fill in the current stripe
-            let draw_start = -line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
-            let draw_end = line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
+            let mut draw_start = -line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
+            if draw_start < 0 {
+                draw_start = 0;
+            }
+
+            let mut draw_end = line_height / 2 + (SCREEN_HEIGHT / 2) as i32;
+            if draw_end >= SCREEN_HEIGHT as i32 {
+                draw_end = SCREEN_HEIGHT as i32 - 1;
+            }
 
             // Get the correct texture for the wall
-            let tex = &textures[(MAP[map_pos.y as usize][map_pos.x as usize] - 1) as usize];
+            let tex_num = (MAP[map_pos.y as usize][map_pos.x as usize] - 1) as usize;
 
             // Calculate the value of the wall x coordinate
             let wall_x = (if ns_side {state.pos.x + perp_wal_dist * ray.x} else {state.pos.y + perp_wal_dist * ray.y}).fract();
@@ -342,14 +350,32 @@ fn main() -> Result<(), String> {
                 tex_x = TEX_SIZE - tex_x - 1;
             }
 
-            // Get the rectangle of the texture to draw
-            let tex_slice = Rect::new(tex_x as i32, 0, 1, TEX_SIZE as u32);
+            let tex_step = TEX_SIZE as f64 / line_height as f64;
 
-            // Get the rectangle of the slice of the screen to draw to
-            let screen_slice = Rect::new(x as i32, draw_start, 1, (draw_end - draw_start) as u32);
+            // Starting texture coordinate
+            let mut tex_pos =
+                (draw_start - (SCREEN_HEIGHT / 2) as i32 + line_height / 2) as f64 * tex_step;
 
-            // Draw the slice of the texture to the screen
-            canvas.copy(&tex, Some(tex_slice), Some(screen_slice))?;
+            for y in draw_start..draw_end {
+                // Get the correct texture pixel
+                let tex_y = tex_pos as u32 & (TEX_SIZE - 1);
+                tex_pos += tex_step;
+                let index = ((tex_y * TEX_SIZE) as usize + (tex_x as usize)) * 3;
+                let bitmap = surfaces[tex_num as usize].without_lock()
+                    .expect("Could not get surface pixels");
+                let color = Color::RGB(
+                    bitmap[index] as u8,
+                    bitmap[index + 1] as u8,
+                    bitmap[index + 2] as u8,
+                );
+//                if ns_side {
+//                    color = (color >> 1) & 8355711
+//                } // Make y sides darker
+
+                // Draw the pixel
+                canvas.set_draw_color(color);
+                canvas.draw_point(Point::new(x as i32, y))?;
+            }
         }
 
         // TODO: Draw the fps on the screen
