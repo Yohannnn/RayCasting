@@ -1,12 +1,11 @@
 use sdl2::{
     event::Event,
-    image::LoadSurface,
     keyboard::Keycode,
     pixels::Color,
-    rect::{Point, Rect},
-    surface::Surface,
+    rect::{Point, Rect}
 };
 use std::{ops, time::Instant};
+use image::{io::Reader as ImageReader, RgbImage};
 
 // Screen size
 const PLANE_WIDTH: u32 = 320;
@@ -140,7 +139,7 @@ fn move_player(s: &mut State, speed: f64) {
     }
 }
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize SDL2
     let sdl_context = sdl2::init()?;
 
@@ -165,20 +164,20 @@ fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     // Set the size of the canvas
-    canvas.set_logical_size(PLANE_WIDTH, PLANE_HEIGHT).unwrap();
+    canvas.set_logical_size(PLANE_WIDTH, PLANE_HEIGHT)?;
 
     let mut event_pump = sdl_context.event_pump()?;
 
     // Load in the surfaces from files
-    let textures: [Surface; 8] = [
-        Surface::from_file("assets/eagle.png")?,
-        Surface::from_file("assets/redbrick.png")?,
-        Surface::from_file("assets/purplestone.png")?,
-        Surface::from_file("assets/greystone.png")?,
-        Surface::from_file("assets/bluestone.png")?,
-        Surface::from_file("assets/mossy.png")?,
-        Surface::from_file("assets/wood.png")?,
-        Surface::from_file("assets/colorstone.png")?,
+    let textures: [RgbImage; 8] = [
+        ImageReader::open("assets/eagle.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/redbrick.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/purplestone.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/greystone.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/bluestone.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/mossy.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/wood.png")?.decode()?.into_rgb8(),
+        ImageReader::open("assets/colorstone.png")?.decode()?.into_rgb8(),
     ];
 
     let mut state = State {
@@ -325,11 +324,8 @@ fn main() -> Result<(), String> {
                 // Get the correct texture pixel
                 let tex_y = tex_pos as u32 & (TEX_SIZE - 1);
                 tex_pos += tex_step;
-                let index = ((tex_y * TEX_SIZE) as usize + (tex_x as usize)) * 3;
-                let buffer = textures[tex_num as usize]
-                    .without_lock()
-                    .expect("Could not get surface pixels");
-                let mut color = Color::RGB(buffer[index], buffer[index + 1], buffer[index + 2]);
+                let pixel = textures[tex_num].get_pixel(tex_x, tex_y);
+                let mut color = Color::RGB(pixel[0], pixel[1], pixel[2]);
                 // Makes the y sides of the walls darker
                 if ns_side {
                     color.r /= 2;
